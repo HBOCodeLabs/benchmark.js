@@ -2493,9 +2493,11 @@
             'while(i$--){#{fn}\n}#{end};#{teardown}\nreturn{elapsed:r$,uid:"#{uid}"}';
       }
 
+      template.asyncSetup = 'if(typeof su$=="function"){try{#{setup}\n}catch(e$){su$()}}else{#{setup}\n};';2
+
       template.asyncBegin = "t$.resume(d$);";
       if (bench.options.setupPerIteration) {
-        template.asyncBegin = "d$.setup();" + template.asyncBegin;
+        template.asyncBegin = "#{asyncSetup}" + template.asyncBegin;
       }
 
       var asyncTemplate = 'var d$=this,#{fnArg}=d$,m$=d$.benchmark._original,f$=m$.fn,su$=m$.setup,td$=m$.teardown;' +
@@ -2507,6 +2509,8 @@
           'd$.setup=function(){if(typeof su$=="function"){try{#{setup}\n}catch(e$){su$()}}else{#{setup}\n}};' +
           // set `deferred.fn`
           'd$.fn=function(){var #{fnArg}=d$;if(typeof f$=="function"){try{#{asyncBegin}#{fn}\n}catch(e$){#{asyncBegin}f$(d$)}}else{#{asyncBegin}#{fn}\n}};' +
+          // execute setup
+          "#{asyncSetup}" +
           // execute `deferred.fn` and return a dummy object
           '}d$.fn();return{}'
 
