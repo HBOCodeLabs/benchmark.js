@@ -2070,19 +2070,25 @@
   QUnit.module('Benchmark.setupPerIteration');
 
   (function() {
-
+    global._teardown = true;
     var options = {
       'setupPerIteration': true,
       'setup': function() {
         var x = [3,2,1];
+        //ok(_teardown);
+        _teardown = false;
       },
+
       'fn': function() {
         ok(x[0] === 3);
         x.sort();
       },
+
       'teardown': function() {
-        ok(x[0] ===1);
+        ok(x[0] === 1);
+        _teardown = true;
       },
+
       'onComplete': function() {
         ok(true);
       }
@@ -2099,16 +2105,23 @@
 
     test('should run with teardown only', function() {
       options.fn = function() {
-        var x = [3,2,1]; x.sort();
+        var x = [3,2,1];
+        x.sort();
+        ok(teardown);
+        teardown = false;
       },
       options.teardown = function() {
-        ok(x[0] ===1);
+        ok(x[0] === 1);
+        teardown = true;
       };
       options.setup = undefined;
       Benchmark(options).run();
     });
 
     test('should run without setup or teardown', function() {
+      options.fn = function() {
+        [3,2,1].sort();
+      }
       options.teardown = undefined;
       options.setup = undefined;
       Benchmark(options).run();
@@ -2120,18 +2133,27 @@
   QUnit.module('Benchmark.setupPerIteration Deferred');
 
   (function() {
+    global._teardown = true;
     var options = {
       'defer': true,
       'setupPerIteration': true,
       'setup': function() {
         var x = [3, 2, 1];
+        //ok(_teardown);
+        _teardown = false;
       },
+
       'fn': function() {
         setTimeout(function() {
           ok(x[0] === 3);
-          x.sort(); deferred.resolve(); }, 10);
+          x.sort();
+          deferred.resolve(); }, 10);
       },
-      'teardown': function() {x.length = 0;},
+
+      'teardown': function() {
+        _teardown = true;
+      },
+
       'onComplete': function() {
         ok(true);
         QUnit.start();
@@ -2143,6 +2165,9 @@
     });
 
     asyncTest('should run with setup only', function() {
+      options.setup = function() {
+        var x = [3, 2, 1];
+      },
       options.teardown = undefined;
       Benchmark(options).run();
     });
