@@ -2493,11 +2493,11 @@
             'while(i$--){#{fn}\n}#{end};#{teardown}\nreturn{elapsed:r$,uid:"#{uid}"}';
       }
 
-      template.asyncSetup = 'if(typeof su$=="function"){try{#{setup}\n}catch(e$){su$()}}else{#{setup}\n};';2
+      template.asyncSetup = 'if(typeof su$=="function"){try{#{setup}\n}catch(e$){su$()}}else{#{setup}\n};';
 
       template.asyncBegin = "t$.resume(d$);";
       if (bench.options.setupPerIteration) {
-        template.asyncBegin = "#{asyncSetup}" + template.asyncBegin;
+        template.asyncBegin = template.asyncSetup + template.asyncBegin;
       }
 
       var asyncTemplate = 'var d$=this,#{fnArg}=d$,m$=d$.benchmark._original,f$=m$.fn,su$=m$.setup,td$=m$.teardown;' +
@@ -2505,8 +2505,6 @@
           'if(!d$.cycles){' +
           // set `deferred.teardown`
           'd$.teardown=function(){if(typeof td$=="function"){try{#{teardown}\n}catch(e$){td$()}}else{#{teardown}\n}};' +
-          // set `deferred.setup`
-          'd$.setup=function(){if(typeof su$=="function"){try{#{setup}\n}catch(e$){su$()}}else{#{setup}\n}};' +
           // set `deferred.fn`
           'd$.fn=function(){var #{fnArg}=d$;if(typeof f$=="function"){try{#{asyncBegin}#{fn}\n}catch(e$){#{asyncBegin}f$(d$)}}else{#{asyncBegin}#{fn}\n}};' +
           // execute setup
