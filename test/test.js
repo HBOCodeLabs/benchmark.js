@@ -2075,13 +2075,13 @@
       'setupPerIteration': true,
       'setup': function() {
         var x = [3,2,1];
-        //ok(_teardown);
-        _teardown = false;
+        ok(_teardown);
       },
 
       'fn': function() {
         ok(x[0] === 3);
         x.sort();
+        _teardown = false;
       },
 
       'teardown': function() {
@@ -2099,6 +2099,9 @@
     });
 
     test('should run with setup only', function() {
+      options.setup = function() {
+        var x = [3, 2, 1];
+      },
       options.teardown = undefined;
       Benchmark(options).run();
     });
@@ -2134,23 +2137,26 @@
 
   (function() {
     global._teardown = true;
+    //global._x = []
+
     var options = {
       'defer': true,
       'setupPerIteration': true,
       'setup': function() {
         var x = [3, 2, 1];
         //ok(_teardown);
-        _teardown = false;
       },
 
       'fn': function() {
         setTimeout(function() {
           ok(x[0] === 3);
           x.sort();
+          //_teardown = false;
           deferred.resolve(); }, 10);
       },
 
       'teardown': function() {
+        ok(x[0] === 1);
         _teardown = true;
       },
 
@@ -2166,7 +2172,7 @@
 
     asyncTest('should run with setup only', function() {
       options.setup = function() {
-        var x = [3, 2, 1];
+        x = [3, 2, 1];
       },
       options.teardown = undefined;
       Benchmark(options).run();
@@ -2176,7 +2182,6 @@
       options.fn = function() {
         setTimeout(function() {
           var x = [3,2,1];
-          ok(x[0] === 3);
           x.sort();
           deferred.resolve();
         }, 10);
