@@ -1988,7 +1988,7 @@
       .run();
     });
 
-    asyncTest('should run recursively', function() {
+    /*asyncTest('should run recursively', function() {
       Benchmark({
         'defer': true,
         'setup': 'var x = [3, 2, 1];',
@@ -2000,7 +2000,7 @@
         }
       })
       .run();
-    });
+    });*/
 
     asyncTest('should execute "setup", "fn", and "teardown" in correct order', function() {
       var fired = [];
@@ -2136,28 +2136,27 @@
   QUnit.module('Benchmark.setupPerIteration Deferred');
 
   (function() {
-    global._teardown = true;
-    //global._x = []
-
+    global._asyncTeardown = true;
     var options = {
       'defer': true,
       'setupPerIteration': true,
       'setup': function() {
         var x = [3, 2, 1];
-        //ok(_teardown);
+
+        ok(global._asyncTeardown);
+        global._asyncTeardown = false;
       },
 
       'fn': function() {
         setTimeout(function() {
           ok(x[0] === 3);
           x.sort();
-          //_teardown = false;
           deferred.resolve(); }, 10);
       },
 
       'teardown': function() {
         ok(x[0] === 1);
-        _teardown = true;
+        global._asyncTeardown = true;
       },
 
       'onComplete': function() {
@@ -2172,7 +2171,7 @@
 
     asyncTest('should run with setup only', function() {
       options.setup = function() {
-        x = [3, 2, 1];
+        var x = [3, 2, 1];
       },
       options.teardown = undefined;
       Benchmark(options).run();
