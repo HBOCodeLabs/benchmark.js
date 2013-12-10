@@ -2493,11 +2493,6 @@
             'while(i$--){#{fn}\n}#{end};#{teardown}\nreturn{elapsed:r$,uid:"#{uid}"}';
       }
 
-      template.asyncBegin = "t$.resume(d$);";
-      if (bench.options.setupPerIteration) {
-        template.asyncBegin = template.asyncBegin;
-      }
-
       var setupCondition = 'if(!d$.cycles){';
       if (bench.options.setupPerIteration) {
         setupCondition = '{';
@@ -2512,7 +2507,7 @@
           'd$.teardown=function(){if(typeof td$=="function"){try{#{teardown}\n}catch(e$){td$()}}else{#{teardown}\n}};' +
           // set `deferred.fn`
           'd$.fn=function(){var #{fnArg}=d$;if(typeof f$=="function")' +
-          '{try{#{asyncBegin}#{fn}\n}catch(e$){#{asyncBegin}f$(d$)}}else{#{asyncBegin}#{fn}\n}};' +
+          '{try{t$.resume(d$);#{fn}\n}catch(e$){t$.resume(d$);f$(d$)}}else{t$.resume(d$);#{fn}\n}};' +
           // execute `deferred.fn` and return a dummy object
           '}d$.fn();return{}'
 

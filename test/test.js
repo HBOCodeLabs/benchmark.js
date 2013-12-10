@@ -1988,7 +1988,7 @@
       .run();
     });
 
-    /*asyncTest('should run recursively', function() {
+    asyncTest('should run recursively', function() {
       Benchmark({
         'defer': true,
         'setup': 'var x = [3, 2, 1];',
@@ -2000,7 +2000,7 @@
         }
       })
       .run();
-    });*/
+    });
 
     asyncTest('should execute "setup", "fn", and "teardown" in correct order', function() {
       var fired = [];
