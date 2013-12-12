@@ -1186,6 +1186,8 @@
    * @memberOf Benchmark.Deferred
    */
   function resolve() {
+    timer.stop(this);
+
     var me = this,
         clone = me.benchmark,
         bench = clone._original;
@@ -1197,6 +1199,10 @@
       cycle(me);
     }
     else if (++me.cycles < clone.count) {
+      if (bench.options.setupPerIteration) {
+        me.teardown();
+      }
+
       // continue the test loop
       if (support.timeout) {
         // use setTimeout to avoid a call stack overflow if called recursively
@@ -1206,7 +1212,7 @@
       }
     }
     else {
-      timer.stop(me);
+      me.cycles = 0;
       me.teardown();
       delay(clone, function() { cycle(me); });
     }
@@ -2478,29 +2484,38 @@
         }
       }
 
+      var syncTemplate;
+      if (bench.options.setupPerIteration) {
+        syncTemplate = 'var r$=0,s$,m$=this,f$=m$.fn,i$=m$.count,n$=t$.ns;' +
+            'while(i$--){#{setup}\n#{begin};#{fn}\n#{teardown}\n#{endIter};}return{elapsed:r$,uid:"#{uid}"}';
+      } else {
+        syncTemplate = 'var r$,s$,m$=this,f$=m$.fn,i$=m$.count,n$=t$.ns;#{setup}\n#{begin};' +
+            'while(i$--){#{fn}\n}#{end};#{teardown}\nreturn{elapsed:r$,uid:"#{uid}"}';
+      }
+
+      var setupCondition = 'if(!d$.cycles){';
+      if (bench.options.setupPerIteration) {
+        setupCondition = '{';
+      }
+
+      var asyncTemplate = 'var d$=this,#{fnArg}=d$,m$=d$.benchmark._original,f$=m$.fn,su$=m$.setup,td$=m$.teardown;' +
+          // setup per cycle or per iteration
+          setupCondition +
+          // execute setup
+          'if(typeof su$=="function"){try{#{setup}\n}catch(e$){su$()}}else{#{setup}\n};' +
+          // set `deferred.teardown`
+          'd$.teardown=function(){if(typeof td$=="function"){try{#{teardown}\n}catch(e$){td$()}}else{#{teardown}\n}};' +
+          // set `deferred.fn`
+          'd$.fn=function(){var #{fnArg}=d$;if(typeof f$=="function")' +
+          '{try{t$.resume(d$);#{fn}\n}catch(e$){t$.resume(d$);f$(d$)}}else{t$.resume(d$);#{fn}\n}};' +
+          // execute `deferred.fn` and return a dummy object
+          '}d$.fn();return{}'
+
       // Compile in setup/teardown functions and the test loop.
       // Create a new compiled test, instead of using the cached `bench.compiled`,
       // to avoid potential engine optimizations enabled over the life of the test.
       var compiled = bench.compiled = createFunction(preprocess('t$'), interpolate(
-        preprocess(deferred
-          ? 'var d$=this,#{fnArg}=d$,m$=d$.benchmark._original,f$=m$.fn,su$=m$.setup,td$=m$.teardown;' +
-            // when `deferred.cycles` is `0` then...
-            'if(!d$.cycles){' +
-            // set `deferred.fn`
-            'd$.fn=function(){var #{fnArg}=d$;if(typeof f$=="function"){try{#{fn}\n}catch(e$){f$(d$)}}else{#{fn}\n}};' +
-            // set `deferred.teardown`
-            'd$.teardown=function(){d$.cycles=0;if(typeof td$=="function"){try{#{teardown}\n}catch(e$){td$()}}else{#{teardown}\n}};' +
-            // execute the benchmark's `setup`
-            'if(typeof su$=="function"){try{#{setup}\n}catch(e$){su$()}}else{#{setup}\n};' +
-            // start timer
-            't$.start(d$);' +
-            // execute `deferred.fn` and return a dummy object
-            '}d$.fn();return{}'
-
-          : 'var r$,s$,m$=this,f$=m$.fn,i$=m$.count,n$=t$.ns;#{setup}\n#{begin};' +
-            'while(i$--){#{fn}\n}#{end};#{teardown}\nreturn{elapsed:r$,uid:"#{uid}"}'),
-        source
-      ));
+        preprocess(deferred ? asyncTemplate : syncTemplate), source));
 
       try {
         if (isEmpty) {
@@ -2710,12 +2725,17 @@
       }
     }
 
+    template.endIter = template.end.replace("=", "+=");
+
     // define `timer` methods
     timer.start = createFunction(preprocess('o$'),
       preprocess('var n$=this.ns,#{begin};o$.elapsed=0;o$.timeStamp=s$'));
 
+    timer.resume = createFunction(preprocess('o$'),
+      preprocess('var n$=this.ns,#{begin};o$.timeStamp=s$'));
+
     timer.stop = createFunction(preprocess('o$'),
-      preprocess('var n$=this.ns,s$=o$.timeStamp,#{end};o$.elapsed=r$'));
+      preprocess('var n$=this.ns,s$=o$.timeStamp,#{end};o$.elapsed+=r$'));
 
     // resolve time span required to achieve a percent uncertainty of at most 1%
     // http://spiff.rit.edu/classes/phys273/uncert/uncert.html

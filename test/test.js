@@ -2067,6 +2067,138 @@
 
   /*--------------------------------------------------------------------------*/
 
+  QUnit.module('Benchmark.setupPerIteration');
+
+  (function() {
+    global._teardown = true;
+    var options = {
+      'setupPerIteration': true,
+      'setup': function() {
+        var x = [3,2,1];
+        ok(_teardown);
+      },
+
+      'fn': function() {
+        ok(x[0] === 3);
+        x.sort();
+        _teardown = false;
+      },
+
+      'teardown': function() {
+        ok(x[0] === 1);
+        _teardown = true;
+      },
+
+      'onComplete': function() {
+        ok(true);
+      }
+    };
+
+    test('should run with setup and teardown', function() {
+      Benchmark(options).run();
+    });
+
+    test('should run with setup only', function() {
+      options.setup = function() {
+        var x = [3, 2, 1];
+      },
+      options.teardown = undefined;
+      Benchmark(options).run();
+    });
+
+    test('should run with teardown only', function() {
+      options.fn = function() {
+        var x = [3,2,1];
+        x.sort();
+        ok(teardown);
+        teardown = false;
+      },
+      options.teardown = function() {
+        ok(x[0] === 1);
+        teardown = true;
+      };
+      options.setup = undefined;
+      Benchmark(options).run();
+    });
+
+    test('should run without setup or teardown', function() {
+      options.fn = function() {
+        [3,2,1].sort();
+      }
+      options.teardown = undefined;
+      options.setup = undefined;
+      Benchmark(options).run();
+    });
+  }());
+
+  /*--------------------------------------------------------------------------*/
+
+  QUnit.module('Benchmark.setupPerIteration Deferred');
+
+  (function() {
+    global._asyncTeardown = true;
+    var options = {
+      'defer': true,
+      'setupPerIteration': true,
+      'setup': function() {
+        var x = [3, 2, 1];
+
+        ok(global._asyncTeardown);
+        global._asyncTeardown = false;
+      },
+
+      'fn': function() {
+        setTimeout(function() {
+          ok(x[0] === 3);
+          x.sort();
+          deferred.resolve(); }, 10);
+      },
+
+      'teardown': function() {
+        ok(x[0] === 1);
+        global._asyncTeardown = true;
+      },
+
+      'onComplete': function() {
+        ok(true);
+        QUnit.start();
+      }
+    };
+
+    asyncTest('should run with setup and teardown', function() {
+      Benchmark(options).run();
+    });
+
+    asyncTest('should run with setup only', function() {
+      options.setup = function() {
+        var x = [3, 2, 1];
+      },
+      options.teardown = undefined;
+      Benchmark(options).run();
+    });
+
+    asyncTest('should run with teardown only', function() {
+      options.fn = function() {
+        setTimeout(function() {
+          var x = [3,2,1];
+          x.sort();
+          deferred.resolve();
+        }, 10);
+      },
+      options.teardown = function() {};
+      options.setup = undefined;
+      Benchmark(options).run();
+    });
+
+    asyncTest('should run without setup or teardown', function() {
+      options.teardown = undefined;
+      options.setup = undefined;
+      Benchmark(options).run();
+    });
+  }());
+
+  /*--------------------------------------------------------------------------*/
+
   // explicitly call `QUnit.start()` for Narwhal, Rhino, and RingoJS
   if (!window.document) {
     QUnit.start();
