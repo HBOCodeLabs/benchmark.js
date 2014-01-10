@@ -1198,7 +1198,11 @@
     }
     else if (++me.cycles < clone.count) {
       if (bench.options.setupPerIteration) {
+        // track time spent in teardown so it can be excluded
+        timer.start(me.excludeTimer);
         me.teardown();
+        timer.stop(me.excludeTimer);
+        me.excludeElapsed += me.excludeTimer.elapsed;
       }
 
       // continue the test loop
@@ -1211,6 +1215,12 @@
     }
     else {
       timer.stop(me);
+
+      // don't count time spent in setup/teardown
+      if (bench.options.setupPerIteration) {
+        me.elapsed -= me.excludeElapsed;
+      }
+
       me.cycles = 0;
       me.teardown();
       delay(clone, function() { cycle(me); });
@@ -2500,6 +2510,8 @@
       var asyncTemplate = 'var d$=this,#{fnArg}=d$,m$=d$.benchmark._original,f$=m$.fn,su$=m$.setup,td$=m$.teardown;' +
           // setup per cycle or per iteration
           setupCondition +
+          // setup exclusion timer per cycle
+          'if(!d$.cycles){d$.excludeTimer = {};d$.excludeElapsed = 0;}' +
           // execute setup
           'if(typeof su$=="function"){try{#{setup}\n}catch(e$){su$()}}else{#{setup}\n};' +
           // set `deferred.teardown`
