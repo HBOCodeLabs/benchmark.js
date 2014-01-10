@@ -1186,8 +1186,6 @@
    * @memberOf Benchmark.Deferred
    */
   function resolve() {
-    timer.stop(this);
-
     var me = this,
         clone = me.benchmark,
         bench = clone._original;
@@ -1212,6 +1210,7 @@
       }
     }
     else {
+      timer.stop(me);
       me.cycles = 0;
       me.teardown();
       delay(clone, function() { cycle(me); });
@@ -2507,7 +2506,9 @@
           'd$.teardown=function(){if(typeof td$=="function"){try{#{teardown}\n}catch(e$){td$()}}else{#{teardown}\n}};' +
           // set `deferred.fn`
           'd$.fn=function(){var #{fnArg}=d$;if(typeof f$=="function")' +
-          '{try{t$.resume(d$);#{fn}\n}catch(e$){t$.resume(d$);f$(d$)}}else{t$.resume(d$);#{fn}\n}};' +
+          '{try{#{fn}\n}catch(e$){f$(d$)}}else{#{fn}\n}};' +
+          // start the timer at the start of each cycle
+          'if(!d$.cycles){t$.start(d$)}' +
           // execute `deferred.fn` and return a dummy object
           '}d$.fn();return{}'
 
@@ -2735,7 +2736,7 @@
       preprocess('var n$=this.ns,#{begin};o$.timeStamp=s$'));
 
     timer.stop = createFunction(preprocess('o$'),
-      preprocess('var n$=this.ns,s$=o$.timeStamp,#{end};o$.elapsed+=r$'));
+      preprocess('var n$=this.ns,s$=o$.timeStamp,#{end};o$.elapsed=r$;'));
 
     // resolve time span required to achieve a percent uncertainty of at most 1%
     // http://spiff.rit.edu/classes/phys273/uncert/uncert.html
