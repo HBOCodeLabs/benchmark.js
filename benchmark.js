@@ -2513,7 +2513,7 @@
           // setup exclusion timer per cycle
           'if(!d$.cycles){d$.excludeTimer = {};d$.excludeElapsed = 0;}' +
           // execute setup
-          'if(typeof su$=="function"){try{#{setup}\n}catch(e$){su$()}}else{#{setup}\n};' +
+          '#{beginExclude} if(typeof su$=="function"){;try{#{setup}\n}catch(e$){su$()}}else{#{setup}\n} #{endExclude}' +
           // set `deferred.teardown`
           'd$.teardown=function(){if(typeof td$=="function"){try{#{teardown}\n}catch(e$){td$()}}else{#{teardown}\n}};' +
           // set `deferred.fn`
@@ -2739,6 +2739,9 @@
     }
 
     template.endIter = template.end.replace("=", "+=");
+
+    template.beginExclude = 't$.start(d$.excludeTimer);';
+    template.endExclude = 't$.stop(d$.excludeTimer);d$.excludeElapsed += d$.excludeTimer.elapsed;';
 
     // define `timer` methods
     timer.start = createFunction(preprocess('o$'),
