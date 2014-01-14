@@ -2495,8 +2495,10 @@
 
       var syncTemplate;
       if (bench.options.setupPerIteration) {
-        syncTemplate = 'var r$=0,s$,m$=this,f$=m$.fn,i$=m$.count,n$=t$.ns;' +
-            'while(i$--){#{setup}\n#{begin};#{fn}\n#{teardown}\n#{endIter};}return{elapsed:r$,uid:"#{uid}"}';
+        syncTemplate = 'var r$=0,s$,m$=this,d$=m$,f$=m$.fn,i$=m$.count,n$=t$.ns;#{begin};' +
+            'm$.excludeTimer = {};m$.excludeElapsed = 0;' +
+            'while(i$--){#{beginExclude}#{setup}\n#{endExclude}#{fn}\n#{beginExclude}#{teardown}#{endExclude}\n}#{end};' +
+            'return{elapsed:r$ - m$.excludeElapsed,uid:"#{uid}"}';
       } else {
         syncTemplate = 'var r$,s$,m$=this,f$=m$.fn,i$=m$.count,n$=t$.ns;#{setup}\n#{begin};' +
             'while(i$--){#{fn}\n}#{end};#{teardown}\nreturn{elapsed:r$,uid:"#{uid}"}';
