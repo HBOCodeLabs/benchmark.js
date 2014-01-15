@@ -1215,12 +1215,6 @@
     }
     else {
       timer.stop(me);
-
-      // don't count time spent in setup/teardown
-      if (bench.options.setupPerIteration) {
-        me.elapsed -= me.excludeElapsed;
-      }
-
       me.cycles = 0;
       me.teardown();
       delay(clone, function() { cycle(me); });
@@ -2498,7 +2492,7 @@
         syncTemplate = 'var r$=0,s$,m$=this,d$=m$,f$=m$.fn,i$=m$.count,n$=t$.ns;#{begin};' +
             'm$.excludeTimer = {};m$.excludeElapsed = 0;' +
             'while(i$--){#{beginExclude}#{setup}\n#{endExclude}#{fn}\n#{beginExclude}#{teardown}#{endExclude}\n}#{end};' +
-            'return{elapsed:r$ - m$.excludeElapsed,uid:"#{uid}"}';
+            'return{elapsed:r$,uid:"#{uid}"}';
       } else {
         syncTemplate = 'var r$,s$,m$=this,f$=m$.fn,i$=m$.count,n$=t$.ns;#{setup}\n#{begin};' +
             'while(i$--){#{fn}\n}#{end};#{teardown}\nreturn{elapsed:r$,uid:"#{uid}"}';
@@ -2966,6 +2960,12 @@
 
     // continue, if not errored
     if (clone.running) {
+      // Exclude time spent in setup and teardown
+      if (options.setupPerIteration) {
+        clocked -= clone.excludeElapsed;
+        clone.excludeElapsed = 0;
+      }
+
       // time taken to complete last test cycle
       bench.times.cycle = times.cycle = clocked;
       // seconds per operation
