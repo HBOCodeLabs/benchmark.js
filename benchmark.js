@@ -2489,9 +2489,19 @@
 
       var syncTemplate;
       if (bench.options.setupPerIteration) {
-        syncTemplate = 'var r$=0,s$,m$=this,d$=m$,f$=m$.fn,i$=m$.count,n$=t$.ns;#{begin};' +
-            'm$.excludeTimer = {};m$.excludeElapsed = 0;' +
-            'while(i$--){#{beginExclude}#{setup}\n#{endExclude}#{fn}\n#{beginExclude}#{teardown}#{endExclude}\n}#{end};' +
+        var setupStr = ''
+        if (bench.setup) {
+          setupStr = '#{beginExclude}#{setup}\n#{endExclude}';
+        }
+
+        var teardownStr = ''
+        if (bench.teardown) {
+          teardownStr = '#{beginExclude}#{teardown}\n#{endExclude}';
+        }
+
+        syncTemplate = 'var r$=0,s$,m$=this,d$=m$,f$=m$.fn,i$=m$.count,n$=t$.ns;' +
+            'm$.excludeTimer = {};m$.excludeElapsed = 0; #{begin};' +
+            'while(i$--){' + setupStr + '#{fn}\n' + teardownStr + '}#{end};' +
             'return{elapsed:r$,uid:"#{uid}"}';
       } else {
         syncTemplate = 'var r$,s$,m$=this,f$=m$.fn,i$=m$.count,n$=t$.ns;#{setup}\n#{begin};' +
