@@ -1186,8 +1186,6 @@
    * @memberOf Benchmark.Deferred
    */
   function resolve() {
-    timer.stop(this);
-
     var me = this,
         clone = me.benchmark,
         bench = clone._original;
@@ -1200,7 +1198,11 @@
     }
     else if (++me.cycles < clone.count) {
       if (bench.options.setupPerIteration) {
+        // track time spent in teardown so it can be excluded
+        timer.start(me.excludeTimer);
         me.teardown();
+        timer.stop(me.excludeTimer);
+        me.excludeElapsed += me.excludeTimer.elapsed;
       }
 
       // continue the test loop
@@ -1212,6 +1214,7 @@
       }
     }
     else {
+      timer.stop(me);
       me.cycles = 0;
       me.teardown();
       delay(clone, function() { cycle(me); });
@@ -2486,8 +2489,20 @@
 
       var syncTemplate;
       if (bench.options.setupPerIteration) {
-        syncTemplate = 'var r$=0,s$,m$=this,f$=m$.fn,i$=m$.count,n$=t$.ns;' +
-            'while(i$--){#{setup}\n#{begin};#{fn}\n#{teardown}\n#{endIter};}return{elapsed:r$,uid:"#{uid}"}';
+        var setupStr = ''
+        if (bench.setup) {
+          setupStr = '#{beginExclude}#{setup}\n#{endExclude}';
+        }
+
+        var teardownStr = ''
+        if (bench.teardown) {
+          teardownStr = '#{beginExclude}#{teardown}\n#{endExclude}';
+        }
+
+        syncTemplate = 'var r$=0,s$,m$=this,d$=m$,f$=m$.fn,i$=m$.count,n$=t$.ns;' +
+            'm$.excludeTimer = {};m$.excludeElapsed = 0; #{begin};' +
+            'while(i$--){' + setupStr + '#{fn}\n' + teardownStr + '}#{end};' +
+            'return{elapsed:r$,uid:"#{uid}"}';
       } else {
         syncTemplate = 'var r$,s$,m$=this,f$=m$.fn,i$=m$.count,n$=t$.ns;#{setup}\n#{begin};' +
             'while(i$--){#{fn}\n}#{end};#{teardown}\nreturn{elapsed:r$,uid:"#{uid}"}';
@@ -2501,13 +2516,17 @@
       var asyncTemplate = 'var d$=this,#{fnArg}=d$,m$=d$.benchmark._original,f$=m$.fn,su$=m$.setup,td$=m$.teardown;' +
           // setup per cycle or per iteration
           setupCondition +
+          // setup exclusion timer per cycle
+          'if(!d$.cycles){d$.excludeTimer = {};d$.excludeElapsed = 0;}' +
           // execute setup
-          'if(typeof su$=="function"){try{#{setup}\n}catch(e$){su$()}}else{#{setup}\n};' +
+          '#{beginExclude} if(typeof su$=="function"){;try{#{setup}\n}catch(e$){su$()}}else{#{setup}\n} #{endExclude}' +
           // set `deferred.teardown`
           'd$.teardown=function(){if(typeof td$=="function"){try{#{teardown}\n}catch(e$){td$()}}else{#{teardown}\n}};' +
           // set `deferred.fn`
           'd$.fn=function(){var #{fnArg}=d$;if(typeof f$=="function")' +
-          '{try{t$.resume(d$);#{fn}\n}catch(e$){t$.resume(d$);f$(d$)}}else{t$.resume(d$);#{fn}\n}};' +
+          '{try{#{fn}\n}catch(e$){f$(d$)}}else{#{fn}\n}};' +
+          // start the timer at the start of each cycle
+          'if(!d$.cycles){t$.start(d$)}' +
           // execute `deferred.fn` and return a dummy object
           '}d$.fn();return{}'
 
@@ -2727,6 +2746,9 @@
 
     template.endIter = template.end.replace("=", "+=");
 
+    template.beginExclude = 't$.start(d$.excludeTimer);';
+    template.endExclude = 't$.stop(d$.excludeTimer);d$.excludeElapsed += d$.excludeTimer.elapsed;';
+
     // define `timer` methods
     timer.start = createFunction(preprocess('o$'),
       preprocess('var n$=this.ns,#{begin};o$.elapsed=0;o$.timeStamp=s$'));
@@ -2735,7 +2757,7 @@
       preprocess('var n$=this.ns,#{begin};o$.timeStamp=s$'));
 
     timer.stop = createFunction(preprocess('o$'),
-      preprocess('var n$=this.ns,s$=o$.timeStamp,#{end};o$.elapsed+=r$'));
+      preprocess('var n$=this.ns,s$=o$.timeStamp,#{end};o$.elapsed=r$;'));
 
     // resolve time span required to achieve a percent uncertainty of at most 1%
     // http://spiff.rit.edu/classes/phys273/uncert/uncert.html
@@ -2948,6 +2970,12 @@
 
     // continue, if not errored
     if (clone.running) {
+      // Exclude time spent in setup and teardown
+      if (options.setupPerIteration) {
+        clocked -= clone.excludeElapsed;
+        clone.excludeElapsed = 0;
+      }
+
       // time taken to complete last test cycle
       bench.times.cycle = times.cycle = clocked;
       // seconds per operation
