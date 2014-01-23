@@ -1369,7 +1369,7 @@
         global._asyncTeardown = false;
       },
 
-      'fn': function() {
+      'fn': function(deferred) {
         setTimeout(function() {
           ok(x[0] === 3);
           x.sort();
@@ -1400,7 +1400,7 @@
     });
 
     asyncTest('should run with teardown only', function() {
-      options.fn = function() {
+      options.fn = function(deferred) {
         setTimeout(function() {
           var x = [3,2,1];
           x.sort();
