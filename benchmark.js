@@ -730,17 +730,16 @@
       else if (++deferred.cycles < clone.count) {
         if (bench.options.setupPerIteration) {
           // track time spent in teardown so it can be excluded
-          timer.start(me.excludeTimer);
-          me.teardown();
-          timer.stop(me.excludeTimer);
-          me.excludeElapsed += me.excludeTimer.elapsed;
+          timer.start(deferred.excludeTimer);
+          deferred.teardown();
+          timer.stop(deferred.excludeTimer);
+          deferred.excludeElapsed += deferred.excludeTimer.elapsed;
         }
 
         clone.compiled.call(deferred, context, timer);
       }
       else {
         timer.stop(deferred);
-        me.cycles = 0;
         deferred.teardown();
         delay(clone, function() { cycle(deferred); });
       }
