@@ -728,10 +728,19 @@
         cycle(deferred);
       }
       else if (++deferred.cycles < clone.count) {
+        if (bench.options.setupPerIteration) {
+          // track time spent in teardown so it can be excluded
+          timer.start(me.excludeTimer);
+          me.teardown();
+          timer.stop(me.excludeTimer);
+          me.excludeElapsed += me.excludeTimer.elapsed;
+        }
+
         clone.compiled.call(deferred, context, timer);
       }
       else {
         timer.stop(deferred);
+        me.cycles = 0;
         deferred.teardown();
         delay(clone, function() { cycle(deferred); });
       }
@@ -1587,26 +1596,54 @@
           }
         }
 
+        var syncTemplate;
+        if (bench.options.setupPerIteration) {
+          var setupStr = ''
+          if (bench.setup) {
+            setupStr = '${beginExclude}${setup}\n${endExclude}';
+          }
+
+          var teardownStr = ''
+          if (bench.teardown) {
+            teardownStr = '${beginExclude}${teardown}\n${endExclude}';
+          }
+
+          syncTemplate = 'var r#,s#,m#=this,d#=m#,f#=m#.fn,i#=m#.count,n#=t#.ns\n' +
+            'm#.excludeTimer = {};m#.excludeElapsed = 0; ${begin};' +
+            'while(i#--){' + setupStr +'${fn}\n' + teardownStr +'}${end};\n' +
+            'return{elapsed:r#,uid:"${uid}"}';
+
+        } else {
+          syncTemplate = 'var r#,s#,m#=this,f#=m#.fn,i#=m#.count,n#=t#.ns;${setup}\n${begin};' +
+            'while(i#--){${fn}\n}${end};${teardown}\nreturn{elapsed:r#,uid:"${uid}"}';
+        }
+
+        var setupCondition = 'if(!d#.cycles){';
+        if (bench.options.setupPerIteration) {
+          setupCondition = '{';
+        }
+
         // Compile in setup/teardown functions and the test loop.
         // Create a new compiled test, instead of using the cached `bench.compiled`,
         // to avoid potential engine optimizations enabled over the life of the test.
-        var funcBody = deferred
-          ? 'var d#=this,${fnArg}=d#,m#=d#.benchmark._original,f#=m#.fn,su#=m#.setup,td#=m#.teardown;' +
-            // when `deferred.cycles` is `0` then...
-            'if(!d#.cycles){' +
+        var asyncTemplate =
+            'var d#=this,${fnArg}=d#,m#=d#.benchmark._original,f#=m#.fn,su#=m#.setup,td#=m#.teardown;' +
+            // setup per cycle or per iteration
+            setupCondition +
+            // setup exclusion timer per cycle
+            'if(!d#.cycles){d#.excludeTimer = {};d#.excludeElapsed = 0;}' +
             // set `deferred.fn`
             'd#.fn=function(){var ${fnArg}=d#;if(typeof f#=="function"){try{${fn}\n}catch(e#){f#(d#)}}else{${fn}\n}};' +
             // set `deferred.teardown`
             'd#.teardown=function(){d#.cycles=0;if(typeof td#=="function"){try{${teardown}\n}catch(e#){td#()}}else{${teardown}\n}};' +
             // execute the benchmark's `setup`
-            'if(typeof su#=="function"){try{${setup}\n}catch(e#){su#()}}else{${setup}\n};' +
-            // start timer
-            't#.start(d#);' +
+            '${beginExclude} if(typeof su#=="function"){try{${setup}\n}catch(e#){su#()}}else{${setup}\n}; ${endExclude}' +
+            // start the timer at the start of each cycle
+            'if(!d#.cycles){t#.start(d#)}' +
             // execute `deferred.fn` and return a dummy object
             '}d#.fn();return{uid:"${uid}"}'
 
-          : 'var r#,s#,m#=this,f#=m#.fn,i#=m#.count,n#=t#.ns;${setup}\n${begin};' +
-            'while(i#--){${fn}\n}${end};${teardown}\nreturn{elapsed:r#,uid:"${uid}"}';
+        var funcBody = deferred? asyncTemplate : syncTemplate;
 
         var compiled = bench.compiled = clone.compiled = createCompiled(bench, deferred, funcBody),
             isEmpty = !(templateData.fn || stringable);
@@ -1719,6 +1756,12 @@
             'end': interpolate('r#=(new n#-s#)/1e3')
           });
         }
+
+        _.extend(templateData, {
+          'beginExclude': interpolate('t#.start(d#.excludeTimer);'),
+          'endExclude': interpolate('t#.stop(d#.excludeTimer);d#.excludeElapsed += d#.excludeTimer.elapsed;')
+        });
+
         // define `timer` methods
         timer.start = createFunction(
           interpolate('o#'),
@@ -2062,6 +2105,12 @@
 
       // continue, if not errored
       if (clone.running) {
+        // Exclude time spent in setup and teardown
+        if (options.setupPerIteration) {
+          clocked -= clone.excludeElapsed;
+          clone.excludeElapsed = 0;
+        }
+
         // time taken to complete last test cycle
         bench.times.cycle = times.cycle = clocked;
         // seconds per operation
