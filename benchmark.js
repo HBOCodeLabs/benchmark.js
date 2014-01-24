@@ -1851,7 +1851,7 @@
 
       // check type in case Safari returns an object instead of a number
       try {
-        if (typeof timer.ns.nanoTime() == 'number') {
+        if (typeof timer.ns === 'object' && typeof timer.ns.nanoTime() == 'number') {
           timers.push({ 'ns': timer.ns, 'res': getRes('ns'), 'unit': 'ns' });
         }
       } catch(e) { }
@@ -1860,7 +1860,9 @@
       // enable benchmarking via the --enable-benchmarking command
       // line switch in at least Chrome 7 to use chrome.Interval
       try {
-        if ((timer.ns = new (context.chrome || context.chromium).Interval)) {
+        var chromeInterval = (context.chrome || context.chromium).Interval;
+        if (chromeInterval) {
+          timer.ns = new chromeInterval;
           timers.push({ 'ns': timer.ns, 'res': getRes('us'), 'unit': 'us' });
         }
       } catch(e) { }
